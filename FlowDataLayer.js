@@ -1,7 +1,7 @@
 /* global ga, Flow, ShopifyAnalytics */
 /* eslint-disable no-var, prefer-arrow-callback, prefer-template, object-shorthand */
 
-(function flowDl() {
+(function flowDL() {
 
   // dependencies
   // cookie handling
@@ -83,9 +83,9 @@
   function setupAddToCart() {
     Flow.on('cart.addItem', function (data) {
         // clear any existing shopify cart items to prevent generic DL cart from being fired
-        if($.cookie('clearCart') === undefined){
-          $.removeCookie('cart', {path: '/'});
-          $.cookie('clearCart','1');
+        if(getCookie('clearCart') === "undefined"){
+          document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+          setCookie('clearCart','1',1);
         }
 
         var item = getItemFromCart(data.id, data.cart);
@@ -115,6 +115,36 @@
       // cart pageview
       Flow.on('pageview.cart', function (data) {
 
+        // clear any existing shopify cart items to prevent generic DL cart from being fired
+        if(getCookie('clearCart') === "undefined"){
+          document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+          setCookie('clearCart','1',1);
+        }
+
+        var item = data.cart;
+        testget = item;
+        var eventData = {
+          'products': [{
+            'variant'  : item.variant_id,
+            'id'       : item.product_id,
+            'quantity' : data.quantity,
+            'price'    : item.local.price.base.amount, 
+            'name'     : item.title,
+            'sku'      : item.sku,
+          }],
+        };
+
+        // push to dataLayer
+        dataLayer.push(eventData,{
+          'pageType' : 'Cart',
+          'event'    : 'Cart'
+        });
+        if(__bva__.debug){
+          console.log("Cart"+" :"+JSON.stringify(eventData, null, " "));
+        }
+      });
+
+      Flow.on('cart.html', function(data) { 
         // clear any existing shopify cart items to prevent generic DL cart from being fired
         if(getCookie('clearCart') === "undefined"){
           document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
