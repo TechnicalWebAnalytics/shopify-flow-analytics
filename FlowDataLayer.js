@@ -10,7 +10,22 @@
     d.setTime(d.getTime() + (exdays*24*60*60*1000));
     var expires = "expires="+ d.toUTCString();
     document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
-}
+  }
+  function getCookie(cname) {
+    var name = cname + "=";
+    var decodedCookie = decodeURIComponent(document.cookie);
+    var ca = decodedCookie.split(';');
+    for(var i = 0; i <ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+        }
+    }
+    return "";
+  }
 
   var NOT_SET = '(not set)';
 
@@ -150,16 +165,17 @@
           setCookie('clearCart','1',1);
         }
 
-        var item = data.html;
+        item = data.html;
+        console.log(item);
         var eventData = {
-          'products': [{
-            'variant'  : item.variant_id,
-            'id'       : item.product_id,
-            'quantity' : data.quantity,
-            'price'    : item.local.price.base.amount, 
-            'name'     : item.title,
-            'sku'      : item.sku,
-          }],
+          // 'products': [{
+          //   'variant'  : item.variant_id,
+          //   'id'       : item.product_id,
+          //   'quantity' : data.quantity,
+          //   'price'    : item.local.price.base.amount, 
+          //   'name'     : item.title,
+          //   'sku'      : item.sku,
+          // }],
         };
 
         // push to dataLayer
@@ -285,6 +301,7 @@
     console.log('[flow_dl] Setup!');
 
     setupAddToCart();
+    setupViewCart();
     setupCheckoutStep1();
     setupCheckoutStep2();
     setupCheckoutStep3();
