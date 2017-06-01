@@ -3,6 +3,8 @@
 
 (function flowDL() {
 
+  window.__bva__ = window.__bva__ || [];
+
   // dependencies
   // cookie handling
   function setCookie(cname, cvalue, exdays) {
@@ -16,13 +18,13 @@
     var decodedCookie = decodeURIComponent(document.cookie);
     var ca = decodedCookie.split(';');
     for(var i = 0; i <ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') {
-            c = c.substring(1);
-        }
-        if (c.indexOf(name) == 0) {
-            return c.substring(name.length, c.length);
-        }
+      var c = ca[i];
+      while (c.charAt(0) == ' ') {
+        c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+        return c.substring(name.length, c.length);
+      }
     }
     return "";
   }
@@ -103,6 +105,7 @@
           setCookie('clearCart','1',1);
         }
 
+        dataLayer.push({'products':''});
         var item = getItemFromCart(data.id, data.cart);
         var eventData = {
           'products': [{
@@ -129,27 +132,30 @@
   function setupViewCart() {
       // cart pageview
       Flow.on('pageview.cart', function (data) {
-
+        // reset dataLayer products
+        dataLayer.push({'products':''});
         // clear any existing shopify cart items to prevent generic DL cart from being fired
         if(getCookie('clearCart') === "undefined"){
           document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
           setCookie('clearCart','1',1);
         }
 
-        var item = data.cart;
-        var eventData = {
-          'products': [{
-            'variant'  : item.variant_id,
-            'id'       : item.product_id,
-            'quantity' : data.quantity,
-            'price'    : item.local.price.base.amount, 
-            'name'     : item.title,
-            'sku'      : item.sku,
-          }],
-        };
+        getdata = data;
+        item = getdata.cart.items;
+        eventData = [];
+        for (var i = item.length - 1; i >= 0; i--) {
+          eventData.push({
+            'variant'  : item[i].variant_id,
+            'id'       : item[i].product_id,
+            'quantity' : item[i].quantity,
+            'price'    : item[i].local.price.base.amount, 
+            'name'     : item[i].title,
+            'sku'      : item[i].sku
+          });
+        }
 
         // push to dataLayer
-        dataLayer.push(eventData,{
+        dataLayer.push({'products': eventData },{
           'pageType' : 'Cart',
           'event'    : 'Cart'
         });
@@ -158,35 +164,55 @@
         }
       });
 
-      Flow.on('cart.html', function(data) { 
-        // clear any existing shopify cart items to prevent generic DL cart from being fired
-        if(getCookie('clearCart') === "undefined"){
-          document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-          setCookie('clearCart','1',1);
-        }
+      // using global shopify elements to detect dynamic cart data
+      // see more information here https://github.com/TechnicalWebAnalytics/dataLayer-shopify
+      $(document).on('click', __bva__.viewCart, function (event) {
+        flowViewcartfire = 0;
+        if(flowViewcartfire !== 1){ 
+          flowViewcartfire = 1;
+          if (__bva__.dynamicCart) {
+            flowCartCheck = setInterval(function () {
+              if ($(__bva__.cartVisableSelector).length > 0) {
+                clearInterval(flowCartCheck);
+                Flow.cart.getCart({ 
+                  success: function (status, data) {
+                    // reset dataLayer products
+                    dataLayer.push({'products':''});
+                    // clear any existing shopify cart items to prevent generic DL cart from being fired
+                    if(getCookie('clearCart') === "undefined"){
+                      document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                      setCookie('clearCart','1',1);
+                    }
 
-        item = data.html;
-        console.log(item);
-        var eventData = {
-          // 'products': [{
-          //   'variant'  : item.variant_id,
-          //   'id'       : item.product_id,
-          //   'quantity' : data.quantity,
-          //   'price'    : item.local.price.base.amount, 
-          //   'name'     : item.title,
-          //   'sku'      : item.sku,
-          // }],
-        };
+                    getdata = data;
+                    item = getdata.items;
+                    eventData = [];
+                    for (var i = item.length - 1; i >= 0; i--) {
+                      eventData.push({
+                        'variant'  : item[i].variant_id,
+                        'id'       : item[i].product_id,
+                        'quantity' : item[i].quantity,
+                        'price'    : item[i].local.price.base.amount, 
+                        'name'     : item[i].title,
+                        'sku'      : item[i].sku
+                      });
+                    }
 
-        // push to dataLayer
-        dataLayer.push(eventData,{
-          'pageType' : 'Cart',
-          'event'    : 'Cart'
-        });
-        if(__bva__.debug){
-          console.log("Cart"+" :"+JSON.stringify(eventData, null, " "));
-        }
-      });
+                    // push to dataLayer
+                    dataLayer.push(eventData,{
+                      'pageType' : 'Cart',
+                      'event'    : 'Cart'
+                    });
+                    if(__bva__.debug){
+                      console.log("Cart"+" :"+JSON.stringify(eventData, null, " "));
+                    }
+                  }
+                });
+              }
+            }, 500);
+          }       
+        }  
+      }); 
     }
 
     function getFlowTransactionData(order){
@@ -225,90 +251,90 @@
         // 'promoCode'              : '',
         // 'discount'               : '',
         'products'               : flow_items
+      }
+
+      return flow_transaction;
     }
 
-    return flow_transaction;
-  }
-
-  function setupCheckoutStep1() {
-    Flow.set('on', 'pageview.checkout_step_1', function (data) {
-     dataLayer.push(getFlowTransactionData(data),{
-      'event'    :'Customer Information',
-      'pageType' :'Customer Information'});
-     dataLayer.push({'event': 'DataLayer Loaded'});
-     if(__bva__.debug){
-     console.log("Customer Information - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null
-      , " "));
-   }
-   });
-  }
-
-  function setupCheckoutStep2() {
-    Flow.set('on', 'pageview.checkout_step_2', function (data) {
-      dataLayer.push(getFlowTransactionData(data),{
-        'event'    :'Shipping Information',
-        'pageType' :'Shipping Information'});
-      dataLayer.push({'event': 'DataLayer Loaded'});
-      if(__bva__.debug){
-      console.log("Shipping - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
+    function setupCheckoutStep1() {
+      Flow.set('on', 'pageview.checkout_step_1', function (data) {
+       dataLayer.push(getFlowTransactionData(data),{
+        'event'    :'Customer Information',
+        'pageType' :'Customer Information'});
+       dataLayer.push({'event': 'DataLayer Loaded'});
+       if(__bva__.debug){
+         console.log("Customer Information - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null
+          , " "));
+       }
+     });
     }
-    });
-  }
 
-  function setupCheckoutStep3() {
-    Flow.set('on', 'pageview.checkout_step_3', function (data) {
-     dataLayer.push(getFlowTransactionData(data),{
-      'event'    :'Add Payment Info',
-      'pageType' :'Add Payment Info'});
-     dataLayer.push({'event': 'DataLayer Loaded'});
-     if(__bva__.debug){
-     console.log("Payment - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
-   }
-   });
-  }
-
-  function setupCheckoutThankYou() {
-    Flow.set('on', 'pageview.checkout_thank_you', function (data) {
-      getorder = data.order;
-      dataLayer.push({
-        'billingInfo': {
-          'fullName'  : getorder.destination.contact.name.first+" "+getorder.destination.contact.name.last,
-          'firstName' : getorder.destination.contact.name.first,
-          'lastName'  : getorder.destination.contact.name.last,
-          'address1'  : getorder.destination.streets[0],
-          'address2'  : getorder.destination.streets[1],
-          'street'    : getorder.destination.streets[0],
-          'city'      : getorder.destination.city,
-          'province'  : getorder.destination.province,
-          'zip'       : getorder.destination.postal,
-          'country'   : getorder.destination.country,
-          'phone'     : getorder.destination.contact.phone,
-        },
-        'checkoutEmail': getorder.destination.contact.email,
+    function setupCheckoutStep2() {
+      Flow.set('on', 'pageview.checkout_step_2', function (data) {
+        dataLayer.push(getFlowTransactionData(data),{
+          'event'    :'Shipping Information',
+          'pageType' :'Shipping Information'});
+        dataLayer.push({'event': 'DataLayer Loaded'});
+        if(__bva__.debug){
+          console.log("Shipping - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
+        }
       });
-      dataLayer.push(getFlowTransactionData(data),{
-        'pageType' :'Transaction',
-        'event'    :'Transaction'
-      });  
-      dataLayer.push({'event': 'DataLayer Loaded'});
-      if(__bva__.debug){     
-      console.log("Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
     }
-    });
-  }
 
-  function setup() {
-    console.log('[flow_dl] Setup!');
+    function setupCheckoutStep3() {
+      Flow.set('on', 'pageview.checkout_step_3', function (data) {
+       dataLayer.push(getFlowTransactionData(data),{
+        'event'    :'Add Payment Info',
+        'pageType' :'Add Payment Info'});
+       dataLayer.push({'event': 'DataLayer Loaded'});
+       if(__bva__.debug){
+         console.log("Payment - Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
+       }
+     });
+    }
 
-    setupAddToCart();
-    setupViewCart();
-    setupCheckoutStep1();
-    setupCheckoutStep2();
-    setupCheckoutStep3();
-    setupCheckoutThankYou();
-  }
+    function setupCheckoutThankYou() {
+      Flow.set('on', 'pageview.checkout_thank_you', function (data) {
+        getorder = data.order;
+        dataLayer.push({
+          'billingInfo': {
+            'fullName'  : getorder.destination.contact.name.first+" "+getorder.destination.contact.name.last,
+            'firstName' : getorder.destination.contact.name.first,
+            'lastName'  : getorder.destination.contact.name.last,
+            'address1'  : getorder.destination.streets[0],
+            'address2'  : getorder.destination.streets[1],
+            'street'    : getorder.destination.streets[0],
+            'city'      : getorder.destination.city,
+            'province'  : getorder.destination.province,
+            'zip'       : getorder.destination.postal,
+            'country'   : getorder.destination.country,
+            'phone'     : getorder.destination.contact.phone,
+          },
+          'checkoutEmail': getorder.destination.contact.email,
+        });
+        dataLayer.push(getFlowTransactionData(data),{
+          'pageType' :'Transaction',
+          'event'    :'Transaction'
+        });  
+        dataLayer.push({'event': 'DataLayer Loaded'});
+        if(__bva__.debug){     
+          console.log("Transaction Data"+" :"+JSON.stringify(getFlowTransactionData(data), null, " "));
+        }
+      });
+    }
 
-  function init() {
+    function setup() {
+      console.log('[flow_dl] Setup!');
+
+      setupAddToCart();
+      setupViewCart();
+      setupCheckoutStep1();
+      setupCheckoutStep2();
+      setupCheckoutStep3();
+      setupCheckoutThankYou();
+    }
+
+    function init() {
     // Wait for GA, Shopify and Flow to be ready.
     backoff(isReady, setup);
   }
