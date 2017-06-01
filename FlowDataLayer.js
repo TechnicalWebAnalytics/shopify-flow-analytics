@@ -140,9 +140,9 @@
           setCookie('clearCart','1',1);
         }
 
-        getdata = data;
-        item = getdata.cart.items;
-        eventData = [];
+        var getdata = data;
+        var item = getdata.cart.items;
+        var eventData = [];
         for (var i = item.length - 1; i >= 0; i--) {
           eventData.push({
             'variant'  : item[i].variant_id,
@@ -184,9 +184,9 @@
                       setCookie('clearCart','1',1);
                     }
 
-                    getdata = data;
-                    item = getdata.items;
-                    eventData = [];
+                    var getdata = data;
+                    var item = getdata.items;
+                    var eventData = [];
                     for (var i = item.length - 1; i >= 0; i--) {
                       eventData.push({
                         'variant'  : item[i].variant_id,
