@@ -122,7 +122,6 @@
         }
 
         var item = data.cart;
-        testget = item;
         var eventData = {
           'products': [{
             'variant'  : item.variant_id,
@@ -151,8 +150,7 @@
           setCookie('clearCart','1',1);
         }
 
-        var item = data.cart;
-        testget = item;
+        var item = data.html;
         var eventData = {
           'products': [{
             'variant'  : item.variant_id,
