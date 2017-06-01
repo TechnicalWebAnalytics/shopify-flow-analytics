@@ -97,6 +97,41 @@
     return pricing;
   }
 
+  function flowDynamicCart(){
+    Flow.cart.getCart({ 
+      success: function (status, data) {
+        // reset dataLayer products
+        dataLayer.push({'products':''});
+        // clear any existing shopify cart items to prevent generic DL cart from being fired
+        if(getCookie('clearCart') === "undefined"){
+          document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+          setCookie('clearCart','1',1);
+        }
+        var getdata = data;
+        var item = getdata.items;
+        var eventData = [];
+        for (var i = item.length - 1; i >= 0; i--) {
+          eventData.push({
+            'variant'  : item[i].variant_id,
+            'id'       : item[i].product_id,
+            'quantity' : item[i].quantity,
+            'price'    : item[i].local.price.base.amount, 
+            'name'     : item[i].title,
+            'sku'      : item[i].sku
+          });
+        }
+        // push to dataLayer
+        dataLayer.push(eventData,{
+          'pageType' : 'Cart',
+          'event'    : 'Cart'
+        });
+        if(__bva__.debug){
+          console.log("Cart"+" :"+JSON.stringify(eventData, null, " "));
+        }
+      }
+    });
+  }
+
   function setupAddToCart() {
     Flow.on('cart.addItem', function (data) {
         // clear any existing shopify cart items to prevent generic DL cart from being fired
@@ -126,7 +161,7 @@
         if(__bva__.debug){
           console.log("Add to Cart"+" :"+JSON.stringify(eventData, null, " "));
         }
-      });
+    });
   }
 
   function setupViewCart() {
@@ -166,48 +201,15 @@
 
       // using global shopify elements to detect dynamic cart data
       // see more information here https://github.com/TechnicalWebAnalytics/dataLayer-shopify
+      flowViewcartfire = 0;
       $(document).on('click', __bva__.viewCart, function (event) {
-        flowViewcartfire = 0;
         if(flowViewcartfire !== 1){ 
           flowViewcartfire = 1;
           if (__bva__.dynamicCart) {
             flowCartCheck = setInterval(function () {
               if ($(__bva__.cartVisableSelector).length > 0) {
                 clearInterval(flowCartCheck);
-                Flow.cart.getCart({ 
-                  success: function (status, data) {
-                    // reset dataLayer products
-                    dataLayer.push({'products':''});
-                    // clear any existing shopify cart items to prevent generic DL cart from being fired
-                    if(getCookie('clearCart') === "undefined"){
-                      document.cookie = "cart=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-                      setCookie('clearCart','1',1);
-                    }
-
-                    var getdata = data;
-                    var item = getdata.items;
-                    var eventData = [];
-                    for (var i = item.length - 1; i >= 0; i--) {
-                      eventData.push({
-                        'variant'  : item[i].variant_id,
-                        'id'       : item[i].product_id,
-                        'quantity' : item[i].quantity,
-                        'price'    : item[i].local.price.base.amount, 
-                        'name'     : item[i].title,
-                        'sku'      : item[i].sku
-                      });
-                    }
-
-                    // push to dataLayer
-                    dataLayer.push(eventData,{
-                      'pageType' : 'Cart',
-                      'event'    : 'Cart'
-                    });
-                    if(__bva__.debug){
-                      console.log("Cart"+" :"+JSON.stringify(eventData, null, " "));
-                    }
-                  }
-                });
+                flowDynamicCart();
               }
             }, 500);
           }       
